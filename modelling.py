@@ -1,3 +1,13 @@
+'''Power Optimization for Factory Machines: 
+Problem Overview:
+
+The goal of this project was to minimize the total power consumption of 20 machines in a factory while achieving a target total Goods Per Hour (GPH) of 9,000. 
+The solution needed to:
+
+    Learn a model for each machine type that predicts power usage based on machine inputs.
+    Optimize the GPH for each machine to minimize total power consumption while meeting the target.'''
+
+
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -6,7 +16,7 @@ from sklearn.metrics import mean_squared_error
 from scipy.optimize import minimize
 import pickle
 
-# Step 1: Training the models for multiple approaches
+# Training the models for multiple approaches
 
 def train_linear_model(data):
     X = data[['input_1', 'input_2', 'input_3']]
@@ -22,7 +32,12 @@ def train_random_forest_model(data):
     model.fit(X, y)
     return model
 
-# Method to train and return different models for comparison
+'''Modeling:
+
+    Two machine learning models were trained:
+        Linear Regression: Simple model with coefficients for each input.
+        Random Forest: A more complex, non-linear model.
+    Models were trained separately for each machine type, using input_1, input_2, and input_3 (GPH) as predictors of power consumption.'''
 def train_models(machine1_data, machine2_data):
     # Linear Regression
     model1_lr = train_linear_model(machine1_data)
@@ -42,12 +57,10 @@ def save_models(models_dict, filename):
     with open(filename, 'wb') as f:
         pickle.dump(models_dict, f)
 
-# Function to load the models back
+# Function to load the models
 def load_models(filename):
     with open(filename, 'rb') as f:
         return pickle.load(f)
-
-# Step 2: Optimization
 
 def power_machine(gph, model, input_1, input_2):
     input_3 = gph  # Variable GPH
@@ -65,22 +78,24 @@ def total_power(gph_values, models, input_1, input_2, num_machines1, num_machine
 
     return total_power_usage
 
-# Constraint: Sum of GPH must equal the target
 def gph_constraint(gph_values, target_gph):
     return np.sum(gph_values) - target_gph
 
-# Main function to run optimization with configurable inputs
+'''Optimization:
+
+    The optimization process used the models to minimize total power usage, subject to the constraint that the sum of the GPH values for all machines must equal 9,000.
+    I  used the Sequential Least Squares Programming (SLSQP) method for efficient optimization.'''
+
 def optimize_power(models, input_1=25, input_2=6, num_machines1=10, num_machines2=10, target_gph=9000, bounds1=(180, 600), bounds2=(300, 1000)):
     # Bounds for GPH (Input 3) for each machine type
     bounds = [bounds1] * num_machines1 + [bounds2] * num_machines2
 
-    # Initial guess for GPH values (mid-range values)
+    #Initial guess for GPH value
     initial_guess = [sum(bounds1)/2] * num_machines1 + [sum(bounds2)/2] * num_machines2
 
-    # Constraints
+    # Defning constraints  
     constraints = {'type': 'eq', 'fun': lambda gph_values: gph_constraint(gph_values, target_gph)}
 
-    # Optimize
     result = minimize(total_power, initial_guess, method='SLSQP', bounds=bounds,
                       constraints=constraints, args=(models, input_1, input_2, num_machines1, num_machines2))
 
@@ -89,7 +104,12 @@ def optimize_power(models, input_1=25, input_2=6, num_machines1=10, num_machines
 
     return optimal_gph_values, total_power_usage
 
-# Comparison function to evaluate different models
+'''Model Comparison:
+
+    Linear Regression and Random Forest were compared using the Mean Squared Error (MSE) to assess their performance on the training data.
+    Random Forest typically showed lower MSE, indicating better predictive accuracy.
+'''
+
 def compare_models(machine1_data, machine2_data, models_dict):
     comparisons = {}
     X1 = machine1_data[['input_1', 'input_2', 'input_3']]
@@ -110,8 +130,8 @@ def compare_models(machine1_data, machine2_data, models_dict):
     
     return comparisons
 
-# Step 3: Putting it all together
 
+# Main 
 # Load the datasets
 machine1_path = './machine1.csv'
 machine2_path = './machine2.csv'
@@ -119,29 +139,53 @@ machine2_path = './machine2.csv'
 machine1_df = pd.read_csv(machine1_path)
 machine2_df = pd.read_csv(machine2_path)
 
-# Filter rows based on 'check' value between 90 and 110 for both machines
+'''Data Preparation:
+
+    I used provided datasets for two types of machines.
+    The data was filtered to include only valid rows (where check value is between 90 and 110).'''
+
 machine1_valid = machine1_df[(machine1_df['check'] >= 90) & (machine1_df['check'] <= 110)]
 machine2_valid = machine2_df[(machine2_df['check'] >= 90) & (machine2_df['check'] <= 110)]
 
 # Train models
 models_dict = train_models(machine1_valid, machine2_valid)
 
-# Export the models to be used in another program without retraining
 save_models(models_dict, 'trained_models.pkl')
 
-# Load models (for reusability)
 loaded_models = load_models('trained_models.pkl')
 
 # Compare model performance
 comparison = compare_models(machine1_valid, machine2_valid, loaded_models)
 print("Model comparison: ", comparison)
 
-# Optimize power usage with configurable parameters
 optimal_gph_values, total_power_usage = optimize_power(loaded_models['linear_regression'], input_1=25, input_2=6, target_gph=9000)
 
 # Output results
+'''Optimal GPH Values:
+
+    The solution provided the optimal GPH values for each machine, allowing the factory to produce exactly 9,000 GPH while minimizing power consumption.'''
 print("Optimal GPH values for each machine:")
 for i in range(len(optimal_gph_values)):
     print(f"Machine {i+1}: {optimal_gph_values[i]:.2f} GPH")
 
+
+
+'''Total Power Usage:
+
+    The total minimized power usage across all machines was calculated and displayed.'''
 print(f"\nTotal power usage: {total_power_usage:.2f} units")
+
+
+
+
+'''
+    -Key Observations :
+
+    Linear models are easy to interpret and provide quick solutions, but may lack the accuracy of more complex models like Random Forest.
+    Efficient optimization techniques like SLSQP can quickly solve high-dimensional problems like minimizing power usage across many machines.
+    
+    -Possible Next Measures:
+
+    Test with additional machine learning models to explore further improvements in predictive accuracy.
+    Explore real-time optimization techniques for dynamic environments.
+'''
